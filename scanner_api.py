@@ -7,6 +7,9 @@ from PIL import Image
 # Създаваме router
 router = APIRouter()
 
+# ===== Инициализираме OCR reader само веднъж =====
+reader = easyocr.Reader(['bg', 'en'])  # кеширане за по-бързо първо сканиране
+
 # Вредни Е-номера
 harmful_e_numbers = {
     "E407": "Карагенан (възпаления, храносмилателни проблеми)",
@@ -59,7 +62,6 @@ async def scan_image(file: UploadFile = File(...)):
     image_np = np.array(image)
 
     # OCR
-    reader = easyocr.Reader(['bg', 'en'])
     results = reader.readtext(image_np)
 
     # Обединяваме текста
