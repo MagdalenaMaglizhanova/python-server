@@ -1,16 +1,14 @@
 # scanner_api.py
 from fastapi import APIRouter, UploadFile, File
-import easyocr
-import numpy as np
 from PIL import Image
+import numpy as np
 
-# Създаваме router
+# Минимален OCR – използваме pytesseract вместо EasyOCR, за да спестим памет
+import pytesseract
+
 router = APIRouter()
 
-# ===== Инициализираме OCR reader само веднъж =====
-reader = easyocr.Reader(['bg', 'en'])  # кеширане за по-бързо първо сканиране
-
-# Вредни Е-номера
+# Вредни Е-номера и ключови думи
 harmful_e_numbers = {
     "E407": "Карагенан (възпаления, храносмилателни проблеми)",
     "E621": "Натриев глутамат (главоболие, алергии)",
@@ -20,7 +18,6 @@ harmful_e_numbers = {
     "E250": "Натриев нитрит (риск от рак, в месо)",
 }
 
-# Вредни съставки по ключова дума
 harmful_keywords = {
     "нитрит": "Натриев нитрит – използва се в меса, свързан е с рак",
     "глутамат": "Натриев глутамат – може да предизвика главоболие и алергии",
@@ -30,7 +27,6 @@ harmful_keywords = {
     "лактоза": "Лактоза – може да причини стомашен дискомфорт при непоносимост",
 }
 
-# Категории продукти
 food_categories = {
     "луканка": "преработено месо",
     "салам": "преработено месо",
@@ -41,7 +37,6 @@ food_categories = {
     "кашкавал": "млечен продукт",
 }
 
-# Алтернативи
 category_alternatives = {
     "преработено месо": [
         "🥗 Вместо колбас – печено пилешко филе с подправки.",
@@ -57,35 +52,32 @@ category_alternatives = {
 
 @router.post("/scan")
 async def scan_image(file: UploadFile = File(...)):
-    # Отваряме и конвертираме изображението
+    # Отваряме изображението и resize за по-малко памет
     image = Image.open(file.file).convert("RGB")
-    image_np = np.array(image)
+    max_size = (1024, 1024)
+    image.thumbnail(max_size)
 
-    # OCR
-    results = reader.readtext(image_np)
-
-    # Обединяваме текста
-    full_text = " ".join([text for _, text, _ in results])
+    # OCR с pytesseract
+    full_text = pytesseract.image_to_string(image, lang="bul")
     full_text_lower = full_text.lower()
 
-    # Търсим вредни Е-номера
+    # Проверка за вредни E-номера
     found_e = {e: desc for e, desc in harmful_e_numbers.items() if e.lower() in full_text_lower}
-    # Търсим ключови думи
-    found_keywords = {word: reason for word, reason in harmful_keywords.items() if word in full_text_lower}
+    found_keywords = {word: desc for word, desc in harmful_keywords.items() if word in full_text_lower}
 
-    # Определяме категорията на продукта
+    # Категория
     product_category = None
     for keyword, category in food_categories.items():
         if keyword in full_text_lower:
             product_category = category
             break
 
-    # Алтернативи, ако има вредни съставки и категория
+    # Алтернативи
     alternatives = []
     if (found_e or found_keywords) and product_category:
         alternatives = category_alternatives.get(product_category, [])
 
-    # Генерираме отчет
+    # Отчет
     report_lines = []
     if found_e:
         report_lines.append("🧪 Вредни E-номера:")
@@ -96,8 +88,8 @@ async def scan_image(file: UploadFile = File(...)):
 
     if found_keywords:
         report_lines.append("🧬 Засечени съставки:")
-        for w, reason in found_keywords.items():
-            report_lines.append(f"{w} – {reason}")
+        for w, desc in found_keywords.items():
+            report_lines.append(f"{w} – {desc}")
     else:
         report_lines.append("✅ Няма засечени опасни съставки по ключова дума.")
 
