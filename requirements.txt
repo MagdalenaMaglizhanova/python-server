@@ -1,6 +1,6 @@
 fastapi
-uvicorn
-easyocr
+uvicorn[standard]
 pillow
 numpy
+pytesseract
 python-multipart
