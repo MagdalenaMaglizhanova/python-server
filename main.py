@@ -1,4 +1,3 @@
-# main.py
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from scanner_api import router as scanner_router
@@ -9,22 +8,18 @@ import traceback
 
 app = FastAPI()
 
-# ===== CORS middleware =====
-# Разрешаваме заявки от всички домейни (за тест)
+# Разрешаваме CORS за всички домейни
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # <- временно
+    allow_origins=["*"],
     allow_methods=["*"],
-    allow_headers=["*"],
-    allow_credentials=True,
+    allow_headers=["*"]
 )
 
-# ===== Тест ендпойнт =====
 @app.get("/ping")
 def ping():
     return {"status": "ok"}
 
-# ===== Универсален ендпойнт за изпълнение на скриптове =====
 @app.post("/run-script")
 async def run_script(script_name: str = Form(...), function_name: str = Form(...), file: UploadFile = File(None)):
     try:
@@ -50,5 +45,4 @@ async def run_script(script_name: str = Form(...), function_name: str = Form(...
     except Exception as e:
         return {"error": str(e), "trace": traceback.format_exc()}
 
-# ===== Включваме scanner router =====
 app.include_router(scanner_router, prefix="/scanner", tags=["scanner"])
