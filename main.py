@@ -10,12 +10,10 @@ import traceback
 app = FastAPI()
 
 # ===== CORS middleware =====
-# Разрешаваме заявки само от фронтенда на Vercel
+# Разрешаваме заявки от всички домейни (за тест)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://food-label-scanner.vercel.app"
-    ],
+    allow_origins=["*"],  # <- временно
     allow_methods=["*"],
     allow_headers=["*"],
     allow_credentials=True,
@@ -34,18 +32,15 @@ async def run_script(script_name: str = Form(...), function_name: str = Form(...
         if not os.path.exists(script_path):
             return {"error": f"Script '{script_name}' not found."}
 
-        # Зареждаме скрипта динамично
         spec = importlib.util.spec_from_file_location("module.name", script_path)
         module = importlib.util.module_from_spec(spec)
         sys.modules["module.name"] = module
         spec.loader.exec_module(module)
 
-        # Взимаме функцията
         func = getattr(module, function_name, None)
         if not func:
             return {"error": f"Function '{function_name}' not found in '{script_name}'."}
 
-        # Ако има файл, подаден като аргумент
         if file:
             result = func(file.file)
         else:
