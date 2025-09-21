@@ -54,28 +54,36 @@ category_alternatives = {
 
 @router.post("/scan")
 async def scan_image(file: UploadFile = File(...)):
+    # Отваряме и конвертираме изображението
     image = Image.open(file.file).convert("RGB")
     image_np = np.array(image)
 
+    # OCR
     reader = easyocr.Reader(['bg', 'en'])
     results = reader.readtext(image_np)
 
+    # Обединяваме текста
     full_text = " ".join([text for _, text, _ in results])
     full_text_lower = full_text.lower()
 
+    # Търсим вредни Е-номера
     found_e = {e: desc for e, desc in harmful_e_numbers.items() if e.lower() in full_text_lower}
+    # Търсим ключови думи
     found_keywords = {word: reason for word, reason in harmful_keywords.items() if word in full_text_lower}
 
+    # Определяме категорията на продукта
     product_category = None
     for keyword, category in food_categories.items():
         if keyword in full_text_lower:
             product_category = category
             break
 
+    # Алтернативи, ако има вредни съставки и категория
     alternatives = []
     if (found_e or found_keywords) and product_category:
         alternatives = category_alternatives.get(product_category, [])
 
+    # Генерираме отчет
     report_lines = []
     if found_e:
         report_lines.append("🧪 Вредни E-номера:")
