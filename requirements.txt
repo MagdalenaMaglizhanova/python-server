@@ -2,5 +2,5 @@ fastapi
 uvicorn[standard]
 pillow
 numpy
-pytesseract
 python-multipart
+pytesseract
