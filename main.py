@@ -1,5 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
+from scanner_api import router as scanner_router
 import importlib.util
 import os
 import sys
@@ -48,3 +49,5 @@ async def run_script(script_name: str = Form(...), function_name: str = Form(...
         return {"result": result}
     except Exception as e:
         return {"error": str(e), "trace": traceback.format_exc()}
+
+app.include_router(scanner_router)
