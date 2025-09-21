@@ -1,19 +1,12 @@
 # scanner_api.py
-from fastapi import FastAPI, UploadFile, File
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import APIRouter, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware  # НЕ е нужно тук
 import easyocr
 import numpy as np
 from PIL import Image
 
-app = FastAPI()
-
-# Разрешаваме CORS за React фронтенда
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # или конкретен фронтенд URL
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Създаваме router
+router = APIRouter()
 
 # Вредни Е-номера
 harmful_e_numbers = {
@@ -60,9 +53,8 @@ category_alternatives = {
 }
 
 
-@app.post("/scan")
+@router.post("/scan")
 async def scan_image(file: UploadFile = File(...)):
-    # Отваряме изображението
     image = Image.open(file.file).convert("RGB")
     image_np = np.array(image)
 
@@ -72,13 +64,9 @@ async def scan_image(file: UploadFile = File(...)):
     full_text = " ".join([text for _, text, _ in results])
     full_text_lower = full_text.lower()
 
-    # Търсене за Е-номера
     found_e = {e: desc for e, desc in harmful_e_numbers.items() if e.lower() in full_text_lower}
-
-    # Търсене по ключови думи
     found_keywords = {word: reason for word, reason in harmful_keywords.items() if word in full_text_lower}
 
-    # Откриване на типа продукт
     product_category = None
     for keyword, category in food_categories.items():
         if keyword in full_text_lower:
@@ -89,7 +77,6 @@ async def scan_image(file: UploadFile = File(...)):
     if (found_e or found_keywords) and product_category:
         alternatives = category_alternatives.get(product_category, [])
 
-    # Генериране на отчет
     report_lines = []
     if found_e:
         report_lines.append("🧪 Вредни E-номера:")
