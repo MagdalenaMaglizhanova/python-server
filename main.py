@@ -1,3 +1,4 @@
+# main.py
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from scanner_api import router as scanner_router
@@ -8,20 +9,24 @@ import traceback
 
 app = FastAPI()
 
-# Разрешаваме CORS за всички домейни (можеш да ограничиш към конкретен фронтенд)
+# ===== CORS middleware =====
+# Разрешаваме заявки само от фронтенда на Vercel
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  
+    allow_origins=[
+        "https://food-label-scanner-4fat6jy59-magdalenamaglizhanovas-projects.vercel.app"
+    ],
     allow_methods=["*"],
-    allow_headers=["*"]
+    allow_headers=["*"],
+    allow_credentials=True,
 )
 
-# Тест ендпойнт
+# ===== Тест ендпойнт =====
 @app.get("/ping")
 def ping():
     return {"status": "ok"}
 
-# Универсален ендпойнт за изпълнение на Python скрипт от папка scripts
+# ===== Универсален ендпойнт за изпълнение на скриптове =====
 @app.post("/run-script")
 async def run_script(script_name: str = Form(...), function_name: str = Form(...), file: UploadFile = File(None)):
     try:
@@ -50,5 +55,5 @@ async def run_script(script_name: str = Form(...), function_name: str = Form(...
     except Exception as e:
         return {"error": str(e), "trace": traceback.format_exc()}
 
-# Включваме scanner router
+# ===== Включваме scanner router =====
 app.include_router(scanner_router, prefix="/scanner", tags=["scanner"])
