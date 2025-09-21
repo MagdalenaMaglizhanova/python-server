@@ -2,9 +2,7 @@
 from fastapi import APIRouter, UploadFile, File
 from PIL import Image
 import numpy as np
-
-# Минимален OCR – използваме pytesseract вместо EasyOCR, за да спестим памет
-import pytesseract
+import easyocr  # Използваме EasyOCR вместо pytesseract
 
 router = APIRouter()
 
@@ -49,6 +47,8 @@ category_alternatives = {
     ]
 }
 
+# Инициализираме EasyOCR reader веднъж
+reader = easyocr.Reader(['bg', 'en'], gpu=False)  # GPU=False за Render
 
 @router.post("/scan")
 async def scan_image(file: UploadFile = File(...)):
@@ -57,15 +57,16 @@ async def scan_image(file: UploadFile = File(...)):
     max_size = (1024, 1024)
     image.thumbnail(max_size)
 
-    # OCR с pytesseract
-    full_text = pytesseract.image_to_string(image, lang="bul")
+    # OCR с EasyOCR
+    results = reader.readtext(np.array(image))
+    full_text = " ".join([text for _, text, _ in results])
     full_text_lower = full_text.lower()
 
-    # Проверка за вредни E-номера
+    # Проверка за вредни E-номера и ключови думи
     found_e = {e: desc for e, desc in harmful_e_numbers.items() if e.lower() in full_text_lower}
     found_keywords = {word: desc for word, desc in harmful_keywords.items() if word in full_text_lower}
 
-    # Категория
+    # Определяме категория
     product_category = None
     for keyword, category in food_categories.items():
         if keyword in full_text_lower:
@@ -77,7 +78,7 @@ async def scan_image(file: UploadFile = File(...)):
     if (found_e or found_keywords) and product_category:
         alternatives = category_alternatives.get(product_category, [])
 
-    # Отчет
+    # Генерираме отчет
     report_lines = []
     if found_e:
         report_lines.append("🧪 Вредни E-номера:")
