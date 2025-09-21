@@ -1,6 +1,5 @@
 # scanner_api.py
 from fastapi import APIRouter, UploadFile, File
-from fastapi.middleware.cors import CORSMiddleware  # НЕ е нужно тук
 import easyocr
 import numpy as np
 from PIL import Image
