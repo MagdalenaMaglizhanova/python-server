@@ -8,10 +8,10 @@ import traceback
 
 app = FastAPI()
 
-# Разрешаваме CORS
+# Разрешаваме CORS за всички домейни (можеш да ограничиш към конкретен фронтенд)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # можеш да ограничиш към фронтенд домейна
+    allow_origins=["*"],  
     allow_methods=["*"],
     allow_headers=["*"]
 )
@@ -50,4 +50,5 @@ async def run_script(script_name: str = Form(...), function_name: str = Form(...
     except Exception as e:
         return {"error": str(e), "trace": traceback.format_exc()}
 
-app.include_router(scanner_router)
+# Включваме scanner router
+app.include_router(scanner_router, prefix="/scanner", tags=["scanner"])
