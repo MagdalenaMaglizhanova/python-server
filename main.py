@@ -10,12 +10,10 @@ import traceback
 app = FastAPI()
 
 # ===== CORS middleware =====
-# Разрешаваме заявки само от фронтенда на Vercel
+# Разрешаваме заявки от всички домейни (за тест)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://food-label-scanner-4fat6jy59-magdalenamaglizhanovas-projects.vercel.app"
-    ],
+    allow_origins=["*"],  # <- временно, за да се справим с CORS
     allow_methods=["*"],
     allow_headers=["*"],
     allow_credentials=True,
