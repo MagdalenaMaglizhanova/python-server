@@ -1,12 +1,10 @@
-# scanner_api.py
 from fastapi import APIRouter, UploadFile, File
-from PIL import Image
+import easyocr
 import numpy as np
-import easyocr  # Използваме EasyOCR вместо pytesseract
+from PIL import Image
 
 router = APIRouter()
 
-# Вредни Е-номера и ключови думи
 harmful_e_numbers = {
     "E407": "Карагенан (възпаления, храносмилателни проблеми)",
     "E621": "Натриев глутамат (главоболие, алергии)",
@@ -47,38 +45,30 @@ category_alternatives = {
     ]
 }
 
-# Инициализираме EasyOCR reader веднъж
-reader = easyocr.Reader(['bg', 'en'], gpu=False)  # GPU=False за Render
-
 @router.post("/scan")
 async def scan_image(file: UploadFile = File(...)):
-    # Отваряме изображението и resize за по-малко памет
     image = Image.open(file.file).convert("RGB")
-    max_size = (1024, 1024)
-    image.thumbnail(max_size)
+    image_np = np.array(image)
 
-    # OCR с EasyOCR
-    results = reader.readtext(np.array(image))
+    reader = easyocr.Reader(['bg', 'en'])
+    results = reader.readtext(image_np)
+
     full_text = " ".join([text for _, text, _ in results])
     full_text_lower = full_text.lower()
 
-    # Проверка за вредни E-номера и ключови думи
     found_e = {e: desc for e, desc in harmful_e_numbers.items() if e.lower() in full_text_lower}
-    found_keywords = {word: desc for word, desc in harmful_keywords.items() if word in full_text_lower}
+    found_keywords = {word: reason for word, reason in harmful_keywords.items() if word in full_text_lower}
 
-    # Определяме категория
     product_category = None
     for keyword, category in food_categories.items():
         if keyword in full_text_lower:
             product_category = category
             break
 
-    # Алтернативи
     alternatives = []
     if (found_e or found_keywords) and product_category:
         alternatives = category_alternatives.get(product_category, [])
 
-    # Генерираме отчет
     report_lines = []
     if found_e:
         report_lines.append("🧪 Вредни E-номера:")
@@ -89,8 +79,8 @@ async def scan_image(file: UploadFile = File(...)):
 
     if found_keywords:
         report_lines.append("🧬 Засечени съставки:")
-        for w, desc in found_keywords.items():
-            report_lines.append(f"{w} – {desc}")
+        for w, reason in found_keywords.items():
+            report_lines.append(f"{w} – {reason}")
     else:
         report_lines.append("✅ Няма засечени опасни съставки по ключова дума.")
 
