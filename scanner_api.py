@@ -1,13 +1,14 @@
-from fastapi import APIRouter, UploadFile, File
-from PIL import Image
+from fastapi import APIRouter
+import easyocr
 import numpy as np
+from PIL import Image
+import os
 
 router = APIRouter()
 
-# Инициализацията на easyocr ще се случи при първо използване
-reader = None
+# Абсолютна или относителна пътека към test/
+BASE_TEST_DIR = os.path.join("test")
 
-# Вредни E-номера и ключови думи
 harmful_e_numbers = {
     "E407": "Карагенан (възпаления, храносмилателни проблеми)",
     "E621": "Натриев глутамат (главоболие, алергии)",
@@ -26,7 +27,6 @@ harmful_keywords = {
     "лактоза": "Лактоза – може да причини стомашен дискомфорт при непоносимост",
 }
 
-# Категории храни и алтернативи
 food_categories = {
     "луканка": "преработено месо",
     "салам": "преработено месо",
@@ -49,42 +49,35 @@ category_alternatives = {
     ]
 }
 
-@router.post("/scan")
-async def scan_image(file: UploadFile = File(...)):
-    global reader
+@router.get("/scan-from-test")
+async def scan_from_test(filename: str):
+    file_path = os.path.join(BASE_TEST_DIR, filename)
 
-    # Lazy load на easyocr.Reader
-    if reader is None:
-        import easyocr
-        reader = easyocr.Reader(['bg', 'en'])
+    if not os.path.exists(file_path):
+        return {"error": f"Файлът {filename} не съществува в {BASE_TEST_DIR}."}
 
-    # Конвертираме изображението
-    image = Image.open(file.file).convert("RGB")
+    image = Image.open(file_path).convert("RGB")
     image_np = np.array(image)
 
-    # OCR
+    reader = easyocr.Reader(['bg', 'en'])
     results = reader.readtext(image_np)
 
     full_text = " ".join([text for _, text, _ in results])
     full_text_lower = full_text.lower()
 
-    # Проверка за вредни E-номера и ключови думи
     found_e = {e: desc for e, desc in harmful_e_numbers.items() if e.lower() in full_text_lower}
     found_keywords = {word: reason for word, reason in harmful_keywords.items() if word in full_text_lower}
 
-    # Определяне на категория на продукта
     product_category = None
     for keyword, category in food_categories.items():
         if keyword in full_text_lower:
             product_category = category
             break
 
-    # Предложения за алтернативи
     alternatives = []
     if (found_e or found_keywords) and product_category:
         alternatives = category_alternatives.get(product_category, [])
 
-    # Създаваме отчет
     report_lines = []
     if found_e:
         report_lines.append("🧪 Вредни E-номера:")
