@@ -1,48 +1,71 @@
-from fastapi import APIRouter, Query
-import easyocr
-import numpy as np
+from fastapi import APIRouter, UploadFile, File
 from PIL import Image
-import os
+import numpy as np
+import easyocr
 
 router = APIRouter()
 
-BASE_TEST_DIR = os.path.join("test")
+# Инициализираме easyocr веднъж при стартиране
+reader = easyocr.Reader(['bg', 'en'])
 
-# --- остават harmful_e_numbers, harmful_keywords, food_categories и category_alternatives ---
-# (не променяни)
+# Списък с вредни E-номера и ключови думи
+harmful_e_numbers = {
+    "E407": "Карагенан (възпаления, храносмилателни проблеми)",
+    "E621": "Натриев глутамат (главоболие, алергии)",
+    "E262": "Натриев ацетат (дразни стомаха)",
+    "E300": "Аскорбинова киселина (в големи дози дразни стомаха)",
+    "E330": "Лимонена киселина (уврежда зъбния емайл)",
+    "E250": "Натриев нитрит (риск от рак, в месо)",
+}
 
-# Инициализираме EasyOCR reader веднъж при стартиране
-print("Initializing EasyOCR reader...")
-reader = easyocr.Reader(['bg', 'en'])  # това ще зареди модела в паметта
-print("EasyOCR reader ready!")
+harmful_keywords = {
+    "нитрит": "Натриев нитрит – използва се в меса, свързан е с рак",
+    "глутамат": "Натриев глутамат – може да предизвика главоболие и алергии",
+    "карагинан": "Карагенан – свързан с възпаления в червата",
+    "фосфат": "Фосфати – могат да влияят негативно на бъбреците",
+    "консерван": "Консерванти – често съдържат нитрати или сулфити",
+    "лактоза": "Лактоза – може да причини стомашен дискомфорт при непоносимост",
+}
 
-@router.get("/list-test-files")
-async def list_test_files():
-    if not os.path.exists(BASE_TEST_DIR):
-        return {"files": []}
-    files = [f for f in os.listdir(BASE_TEST_DIR) if f.lower().endswith((".png", ".jpg", ".jpeg"))]
-    return {"files": files}
+food_categories = {
+    "луканка": "преработено месо",
+    "салам": "преработено месо",
+    "наденица": "преработено месо",
+    "суджук": "преработено месо",
+    "пастет": "преработено месо",
+    "сирене": "млечен продукт",
+    "кашкавал": "млечен продукт",
+}
 
-@router.get("/scan-from-test")
-async def scan_from_test(filename: str = Query(..., description="Името на тестовото изображение")):
-    file_path = os.path.join(BASE_TEST_DIR, filename)
+category_alternatives = {
+    "преработено месо": [
+        "🥗 Вместо колбас – печено пилешко филе с подправки.",
+        "🍛 Леща яхния с моркови и подправки.",
+        "🥚 Яйца с авокадо и свежи зеленчуци.",
+    ],
+    "млечен продукт": [
+        "🥥 Веган сирене от кашу.",
+        "🧄 Тофу с билки – идеално за салата.",
+    ]
+}
 
-    if not os.path.exists(file_path):
-        return {"error": f"Файлът {filename} не съществува."}
-
-    # Отваряме изображението и конвертираме в RGB
-    image = Image.open(file_path).convert("RGB")
+@router.post("/scan")
+async def scan_image(file: UploadFile = File(...)):
+    # Конвертираме изображението
+    image = Image.open(file.file).convert("RGB")
     image_np = np.array(image)
 
-    # OCR с вече заредения reader
+    # Използваме вече инициализирания reader
     results = reader.readtext(image_np)
 
     full_text = " ".join([text for _, text, _ in results])
     full_text_lower = full_text.lower()
 
+    # Проверка за вредни E-номера и ключови думи
     found_e = {e: desc for e, desc in harmful_e_numbers.items() if e.lower() in full_text_lower}
     found_keywords = {word: reason for word, reason in harmful_keywords.items() if word in full_text_lower}
 
+    # Категория на продукта
     product_category = None
     for keyword, category in food_categories.items():
         if keyword in full_text_lower:
@@ -53,6 +76,7 @@ async def scan_from_test(filename: str = Query(..., description="Името на
     if (found_e or found_keywords) and product_category:
         alternatives = category_alternatives.get(product_category, [])
 
+    # Създаваме отчет
     report_lines = []
     if found_e:
         report_lines.append("🧪 Вредни E-номера:")
