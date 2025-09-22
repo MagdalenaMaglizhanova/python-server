@@ -1,10 +1,14 @@
 from fastapi import APIRouter, UploadFile, File
-import easyocr
-import numpy as np
 from PIL import Image
+import numpy as np
+import easyocr
 
 router = APIRouter()
 
+# Инициализираме easyocr веднъж при стартиране
+reader = easyocr.Reader(['bg', 'en'])
+
+# Вредни E-номера и ключови думи
 harmful_e_numbers = {
     "E407": "Карагенан (възпаления, храносмилателни проблеми)",
     "E621": "Натриев глутамат (главоболие, алергии)",
@@ -23,6 +27,7 @@ harmful_keywords = {
     "лактоза": "Лактоза – може да причини стомашен дискомфорт при непоносимост",
 }
 
+# Категории храни и алтернативи
 food_categories = {
     "луканка": "преработено месо",
     "салам": "преработено месо",
@@ -47,28 +52,33 @@ category_alternatives = {
 
 @router.post("/scan")
 async def scan_image(file: UploadFile = File(...)):
+    # Конвертираме изображението в RGB и numpy array
     image = Image.open(file.file).convert("RGB")
     image_np = np.array(image)
 
-    reader = easyocr.Reader(['bg', 'en'])
+    # Използваме вече инициализирания reader (не се създава нов всеки път)
     results = reader.readtext(image_np)
 
     full_text = " ".join([text for _, text, _ in results])
     full_text_lower = full_text.lower()
 
+    # Засичане на вредни E-номера и ключови думи
     found_e = {e: desc for e, desc in harmful_e_numbers.items() if e.lower() in full_text_lower}
     found_keywords = {word: reason for word, reason in harmful_keywords.items() if word in full_text_lower}
 
+    # Определяне на категория на продукта
     product_category = None
     for keyword, category in food_categories.items():
         if keyword in full_text_lower:
             product_category = category
             break
 
+    # Предложения за алтернативи
     alternatives = []
     if (found_e or found_keywords) and product_category:
         alternatives = category_alternatives.get(product_category, [])
 
+    # Създаване на отчет
     report_lines = []
     if found_e:
         report_lines.append("🧪 Вредни E-номера:")
