@@ -1,12 +1,11 @@
 from fastapi import APIRouter, UploadFile, File
 from PIL import Image
 import numpy as np
-import easyocr
 
 router = APIRouter()
 
-# Инициализираме easyocr веднъж при стартиране
-reader = easyocr.Reader(['bg', 'en'])
+# Инициализацията на easyocr ще се случи при първо използване
+reader = None
 
 # Вредни E-номера и ключови думи
 harmful_e_numbers = {
@@ -52,17 +51,24 @@ category_alternatives = {
 
 @router.post("/scan")
 async def scan_image(file: UploadFile = File(...)):
-    # Конвертираме изображението в RGB и numpy array
+    global reader
+
+    # Lazy load на easyocr.Reader
+    if reader is None:
+        import easyocr
+        reader = easyocr.Reader(['bg', 'en'])
+
+    # Конвертираме изображението
     image = Image.open(file.file).convert("RGB")
     image_np = np.array(image)
 
-    # Използваме вече инициализирания reader (не се създава нов всеки път)
+    # OCR
     results = reader.readtext(image_np)
 
     full_text = " ".join([text for _, text, _ in results])
     full_text_lower = full_text.lower()
 
-    # Засичане на вредни E-номера и ключови думи
+    # Проверка за вредни E-номера и ключови думи
     found_e = {e: desc for e, desc in harmful_e_numbers.items() if e.lower() in full_text_lower}
     found_keywords = {word: reason for word, reason in harmful_keywords.items() if word in full_text_lower}
 
@@ -78,7 +84,7 @@ async def scan_image(file: UploadFile = File(...)):
     if (found_e or found_keywords) and product_category:
         alternatives = category_alternatives.get(product_category, [])
 
-    # Създаване на отчет
+    # Създаваме отчет
     report_lines = []
     if found_e:
         report_lines.append("🧪 Вредни E-номера:")
