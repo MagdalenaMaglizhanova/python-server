@@ -8,18 +8,23 @@ import traceback
 
 app = FastAPI()
 
-# Разрешаваме CORS за всички домейни
+# Разрешаваме CORS за frontend и локално тестване
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://food-label-scanner.vercel.app"],
+    allow_origins=[
+        "https://food-label-scanner.vercel.app",
+        "http://localhost:5173"
+    ],
     allow_methods=["*"],
     allow_headers=["*"]
 )
 
+# Примерен ping endpoint
 @app.get("/ping")
 def ping():
     return {"status": "ok"}
 
+# Универсален endpoint за скриптове
 @app.post("/run-script")
 async def run_script(script_name: str = Form(...), function_name: str = Form(...), file: UploadFile = File(None)):
     try:
@@ -45,4 +50,5 @@ async def run_script(script_name: str = Form(...), function_name: str = Form(...
     except Exception as e:
         return {"error": str(e), "trace": traceback.format_exc()}
 
+# Включваме scanner API
 app.include_router(scanner_router, prefix="/scanner", tags=["scanner"])
