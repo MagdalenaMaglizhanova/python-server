@@ -11,6 +11,11 @@ BASE_TEST_DIR = os.path.join("test")
 # --- остават harmful_e_numbers, harmful_keywords, food_categories и category_alternatives ---
 # (не променяни)
 
+# Инициализираме EasyOCR reader веднъж при стартиране
+print("Initializing EasyOCR reader...")
+reader = easyocr.Reader(['bg', 'en'])  # това ще зареди модела в паметта
+print("EasyOCR reader ready!")
+
 @router.get("/list-test-files")
 async def list_test_files():
     if not os.path.exists(BASE_TEST_DIR):
@@ -25,10 +30,11 @@ async def scan_from_test(filename: str = Query(..., description="Името на
     if not os.path.exists(file_path):
         return {"error": f"Файлът {filename} не съществува."}
 
+    # Отваряме изображението и конвертираме в RGB
     image = Image.open(file_path).convert("RGB")
     image_np = np.array(image)
 
-    reader = easyocr.Reader(['bg', 'en'])
+    # OCR с вече заредения reader
     results = reader.readtext(image_np)
 
     full_text = " ".join([text for _, text, _ in results])
