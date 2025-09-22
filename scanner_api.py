@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 import easyocr
 import numpy as np
 from PIL import Image
@@ -8,7 +8,8 @@ router = APIRouter()
 
 BASE_TEST_DIR = os.path.join("test")
 
-# --- Тук остават harmful_e_numbers, harmful_keywords и т.н. (без промяна) ---
+# --- остават harmful_e_numbers, harmful_keywords, food_categories и category_alternatives ---
+# (не променяни)
 
 @router.get("/list-test-files")
 async def list_test_files():
@@ -18,7 +19,7 @@ async def list_test_files():
     return {"files": files}
 
 @router.get("/scan-from-test")
-async def scan_from_test(filename: str):
+async def scan_from_test(filename: str = Query(..., description="Името на тестовото изображение")):
     file_path = os.path.join(BASE_TEST_DIR, filename)
 
     if not os.path.exists(file_path):
