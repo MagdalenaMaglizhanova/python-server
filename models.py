@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String, Float, DateTime
 from database import Base
 
 
-class AirQualityMeasurement(Base):
+class AirQuality(Base):
     __tablename__ = "air_quality_measurements"  # името на таблицата според предложението
 
 
