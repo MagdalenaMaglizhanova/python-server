@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float
+from sqlalchemy import Column, Integer, String, Float, DateTime
 from database import Base
 
 class AirQuality(Base):
@@ -6,6 +6,6 @@ class AirQuality(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     city = Column(String, index=True)
-    parameter = Column(String, index=True)  # напр. pm25, pm10
+    parameter = Column(String, index=True)
     value = Column(Float)
-    timestamp = Column(String)  # или DateTime, ако предпочиташ
+    timestamp = Column(DateTime)
