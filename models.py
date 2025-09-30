@@ -3,7 +3,7 @@ from database import Base
 
 
 class AirQuality(Base):
-    __tablename__ = "air_quality_measurements"  # името на таблицата според предложението
+    __tablename__ = "air_quality"
 
 
     id = Column(Integer, primary_key=True, index=True)
