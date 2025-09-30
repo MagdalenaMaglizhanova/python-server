@@ -1,57 +1,32 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from typing import List
-from database import Base, engine, SessionLocal
-from models import AirQualityData
-from datetime import datetime
+from fastapi import FastAPI, Depends, HTTPException
+from sqlalchemy.orm import Session
+from database import SessionLocal, engine, Base
+from models import AirQuality
 
-# Създай таблиците
+# Създаваме таблиците
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Air Quality API")
 
-class DataEntry(BaseModel):
-    agent_id: str
-    timestamp: str
-    source: str
-    parameter: str
-    value: float
-
-@app.post("/data")
-async def receive_data(entries: List[DataEntry]):
+def get_db():
     db = SessionLocal()
     try:
-        for entry in entries:
-            ts = datetime.fromisoformat(entry.timestamp)
-            db_entry = AirQualityData(
-                agent_id=entry.agent_id,
-                timestamp=ts,
-                source=entry.source,
-                parameter=entry.parameter,
-                value=entry.value
-            )
-            db.add(db_entry)
-        db.commit()
-        return {"status": "success", "received": len(entries)}
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        yield db
     finally:
         db.close()
 
-@app.get("/data")
-async def get_data():
-    db = SessionLocal()
-    try:
-        entries = db.query(AirQualityData).all()
-        return [
-            {
-                "agent_id": e.agent_id,
-                "timestamp": e.timestamp.isoformat(),
-                "source": e.source,
-                "parameter": e.parameter,
-                "value": e.value
-            } for e in entries
-        ]
-    finally:
-        db.close()
+@app.get("/")
+def read_root():
+    return {"message": "API работи успешно!"}
+
+@app.get("/air_quality")
+def get_all_air_quality(db: Session = Depends(get_db)):
+    data = db.query(AirQuality).all()
+    return data
+
+@app.get("/air_quality/{parameter}")
+def get_parameter_data(parameter: str, db: Session = Depends(get_db)):
+    data = db.query(AirQuality).filter(AirQuality.parameter == parameter).all()
+    if not data:
+        raise HTTPException(status_code=404, detail="Няма данни за този параметър")
+    return data
