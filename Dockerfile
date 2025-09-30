@@ -1,27 +1,20 @@
-# Използваме стабилна Python версия
+# Използваме официален Python образ
 FROM python:3.11-slim
 
-# Инсталираме системни зависимости за Pillow и Tesseract
-RUN apt-get update && apt-get install -y \
-    tesseract-ocr \
-    tesseract-ocr-bul \
-    tesseract-ocr-eng \
-    libjpeg-dev \
-    zlib1g-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Създаваме работна директория
+# Задаваме директория за приложението
 WORKDIR /app
 
-# Копираме requirements
+# Копираме файловете с зависимостите
 COPY requirements.txt .
 
-# Инсталираме dependencies
-RUN pip install --upgrade pip
-RUN pip install -r requirements.txt
+# Инсталираме зависимостите
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Копираме целия код
-COPY . .
+COPY ./app ./app
 
-# Start command
-CMD ["gunicorn", "main:app", "--bind", "0.0.0.0:5000", "--workers", "4"]
+# Отваряме порт 10000
+EXPOSE 10000
+
+# Стартираме Uvicorn
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "10000"]
